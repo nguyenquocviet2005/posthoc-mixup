@@ -15,6 +15,7 @@ def calc_metrics(args, loader, label, label_onehot, model, criterion):
     ece = calc_ece(softmax, label, bins=15)
     # brier, nll
     nll, brier = calc_nll_brier(softmax, logit, label, label_onehot)
+    print(f"Acc: {acc:.2f} | AURC: {aurc*1000:.2f} | AUROC: {auroc*100:.2f} | ECE: {ece*100:.2f} | NLL: {nll*10:.2f} | Brier: {brier*100:.2f}")
     return acc, auroc*100, aupr_success*100, aupr*100, fpr*100, tnr*100, aurc*1000, eaurc*1000, ece*100, nll*10, brier*100
 
 # AURC, EAURC
@@ -46,11 +47,7 @@ def calc_fpr_aupr(softmax, correct):
     aupr_success = metrics.auc(recall, precision)
     aupr_err = metrics.average_precision_score(-1 * correctness + 1, -1 * softmax_max)
 
-    print("AUROC {0:.2f}".format(auroc * 100))
-    print('AUPR_Success {0:.2f}'.format(aupr_success * 100))
-    print("AUPR_Error {0:.2f}".format(aupr_err*100))
-    print('FPR@TPR95 {0:.2f}'.format(fpr_in_tpr_95*100))
-    print('TNR@TPR95 {0:.2f}'.format(tnr_in_tpr_95 * 100))
+
 
     return auroc, aupr_success, aupr_err, fpr_in_tpr_95, tnr_in_tpr_95
 
@@ -60,7 +57,7 @@ def calc_ece(softmax, label, bins=15):
     bin_lowers = bin_boundaries[:-1]
     bin_uppers = bin_boundaries[1:]
 
-    softmax = torch.tensor(softmax)
+    softmax = torch.tensor(np.array(softmax))
     labels = torch.tensor(label)
 
     softmax_max, predictions = torch.max(softmax, 1)
@@ -78,7 +75,7 @@ def calc_ece(softmax, label, bins=15):
 
             ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
 
-    print("ECE {0:.2f} ".format(ece.item()*100))
+
 
     return ece.item()
 
@@ -86,15 +83,14 @@ def calc_ece(softmax, label, bins=15):
 def calc_nll_brier(softmax, logit, label, label_onehot):
     brier_score = np.mean(np.sum((softmax - label_onehot) ** 2, axis=1))
 
-    logit = torch.tensor(logit, dtype=torch.float)
+    logit = torch.tensor(np.array(logit), dtype=torch.float)
     label = torch.tensor(label, dtype=torch.int)
     logsoftmax = torch.nn.LogSoftmax(dim=1)
 
     log_softmax = logsoftmax(logit)
     nll = calc_nll(log_softmax, label)
 
-    print("NLL {0:.2f} ".format(nll.item()*10))
-    print('Brier {0:.2f}'.format(brier_score*100))
+
 
     return nll.item(), brier_score
 
@@ -133,8 +129,7 @@ def aurc_eaurc(risk_list):
     aurc = risk_coverage_curve_area
     eaurc = risk_coverage_curve_area - optimal_risk_area
 
-    print("AURC {0:.2f}".format(aurc*1000))
-    print("EAURC {0:.2f}".format(eaurc*1000))
+
 
     return aurc, eaurc
 
@@ -172,7 +167,7 @@ def get_metric_values(args, loader, model, criterion):
             for i in output:
                 list_logit.append(i.cpu().data.numpy())
 
-            list_softmax.extend(F.softmax(output).cpu().data.numpy())
+            list_softmax.extend(F.softmax(output, dim=1).cpu().data.numpy())
 
             for j in range(len(pred)):
                 if pred[j] == target[j]:
@@ -196,11 +191,7 @@ def get_metric_values(args, loader, model, criterion):
         nll_correct = nll_criterion(logits[correct], labels[correct]).item()
 
         total_loss /= len(loader)
-        print(total_acc,  len(loader.dataset))
         total_acc = 100. * total_acc.item() / len(loader.dataset)
-        print(total_acc)
-
-        print('Accuracy {:.2f}'.format(total_acc))
 
     return total_acc, list_softmax, list_correct, list_logit, conf_correct, conf_wrong, ece_correct, ece_wrong, nll_correct, nll_wrong
 

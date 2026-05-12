@@ -38,7 +38,7 @@ class LabelSmoothingCrossEntropy(nn.Module):
 criterion_ls = LabelSmoothingCrossEntropy()
 
 
-def mixup_data(x, y, alpha=0.3, use_cuda=True):
+def mixup_data(x, y, alpha=0.2, use_cuda=True):
     '''Returns mixed inputs, pairs of targets, and lambda'''
     lam = np.random.beta(alpha, alpha)
     batch_size = x.size()[0]

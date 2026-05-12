@@ -59,7 +59,7 @@ class Counter(dict):
 
 
 parser = argparse.ArgumentParser(description='Rethinking CC for FP')
-parser.add_argument('--epochs', default=201, type=int, help='Total number of epochs to run')
+parser.add_argument('--epochs', default=200, type=int, help='Total number of epochs to run')
 parser.add_argument('--batch_size', default=128, type=int, help='Batch size for training')
 parser.add_argument('--plot', default=20, type=int, help='')
 parser.add_argument('--run', default=3, type=int, help='')
@@ -106,9 +106,22 @@ def main():
     model_dict = {
         "num_classes": num_class,
     }
+    seeds = [42, 0, 1]
     for r in range(args.run):
         print(100*'#')
-        print(r)
+        print(f"Run {r} with seed {seeds[r]}")
+
+        # Set seeds for reproducibility
+        current_seed = seeds[r]
+        torch.manual_seed(current_seed)
+        np.random.seed(current_seed)
+        import random
+        random.seed(current_seed)
+        torch.cuda.manual_seed_all(current_seed)
+        # Optional: ensure deterministic behavior on GPU (can slow down training)
+        # torch.backends.cudnn.deterministic = True
+        # torch.backends.cudnn.benchmark = False
+
         if args.model == 'resnet18':
             model = resnet18.ResNet18(**model_dict).cuda()
         elif args.model == 'res110':
@@ -155,8 +168,6 @@ def main():
 
         # start Train
         for epoch in range(1, args.epochs + 1):
-            if scheduler != None:
-                scheduler.step()
             train_base.train(train_loader,
                         model,
                         cls_criterion,
@@ -166,11 +177,13 @@ def main():
                         correctness_history,
                         train_logger,
                         args)
+            if scheduler is not None:
+                scheduler.step()
 
             # save model
             if epoch == args.epochs:
                 torch.save(model.state_dict(),
-                           os.path.join(save_path, 'model.pth'))
+                           os.path.join(save_path, f'model_seed_{current_seed}.pth'))
             # finish train
 
             # calc measure
