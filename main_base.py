@@ -74,6 +74,7 @@ parser.add_argument('--rank_weight', default=1.0, type=float, help='Rank loss we
 parser.add_argument('--gpu', default='0', type=str, help='GPU id to use')
 parser.add_argument('--print-freq', '-p', default=200, type=int, metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--no_scheduler', action='store_true', help='Disable learning rate scheduler')
 
 args = parser.parse_args()
 
@@ -173,7 +174,7 @@ def main():
         custom_momentum = 0.9  # Momentum
         optimizer = torch.optim.SGD(model.parameters(), lr=base_lr, momentum=custom_momentum,
                                     weight_decay=custom_weight_decay)
-        scheduler = MultiStepLR(optimizer, milestones=lr_strat, gamma=lr_factor)
+        scheduler = None if args.no_scheduler else MultiStepLR(optimizer, milestones=lr_strat, gamma=lr_factor)
         if args.model == "convmixer":
             optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
             scheduler = None

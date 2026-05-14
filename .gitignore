@@ -1,6 +1,7 @@
 __pycache__/
 data/
 output/
+output_flat/
 *.pyc
 .ipynb_checkpoints/
 .venv/
