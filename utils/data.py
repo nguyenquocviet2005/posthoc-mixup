@@ -216,6 +216,104 @@ def get_loader(data, data_path, batch_size, args):
               '   Test Dataset :', len(test_loader.dataset))
         return train_loader, valid_loader, test_loader, test_onehot, test_label
 
+    if data == 'alzheimer':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        train_dir = os.path.join(data_path, 'train')
+        test_dir = os.path.join(data_path, 'test')
+
+        full_train_set = datasets.ImageFolder(root=train_dir)
+        num_total = len(full_train_set)
+        indices = list(range(num_total))
+        np.random.seed(42)
+        np.random.shuffle(indices)
+
+        split_val = int(np.floor(0.1 * num_total))
+        val_idx = indices[:split_val]
+        train_idx = indices[split_val:]
+
+        train_data = ImageFolderSubsetWithIdx(full_train_set, train_idx, train_transforms)
+        eval_data = ImageFolderSubsetWithIdx(full_train_set, val_idx, test_transforms)
+
+        test_base = datasets.ImageFolder(root=test_dir, transform=test_transforms)
+        test_data = ImageFolderDatasetWithIdx(test_base)
+
+        test_targets = test_data.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        print("-------------------Make loader-------------------")
+        print(f"Alzheimer classes: {full_train_set.classes}")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
+    if data == 'tuberculosis':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        full_set = datasets.ImageFolder(root=data_path)
+        num_total = len(full_set)
+        indices = list(range(num_total))
+        np.random.seed(42)
+        np.random.shuffle(indices)
+
+        split_val = int(np.floor(0.1 * num_total))
+        split_test = int(np.floor(0.1 * num_total))
+
+        test_idx = indices[:split_test]
+        val_idx = indices[split_test:split_test + split_val]
+        train_idx = indices[split_test + split_val:]
+
+        train_data = ImageFolderSubsetWithIdx(full_set, train_idx, train_transforms)
+        eval_data = ImageFolderSubsetWithIdx(full_set, val_idx, test_transforms)
+        test_data = ImageFolderSubsetWithIdx(full_set, test_idx, test_transforms)
+
+        test_targets = test_data.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        print("-------------------Make loader-------------------")
+        print(f"Tuberculosis classes: {full_set.classes}")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
     if data == 'chest_xray':
         mean = [0.485, 0.456, 0.406]
         stdv = [0.229, 0.224, 0.225]
@@ -492,6 +590,38 @@ class Custom_Dataset(Dataset):
         else:
             x = img
         return x, self.y_data[idx], idx
+
+
+class ImageFolderSubsetWithIdx(Dataset):
+    def __init__(self, full_set, indices, transform=None):
+        self.full_set = full_set
+        self.indices = indices
+        self.transform = transform
+        self.targets = [self.full_set.samples[i][1] for i in self.indices]
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        real_idx = self.indices[idx]
+        path, target = self.full_set.samples[real_idx]
+        img = Image.open(path).convert('RGB')
+        if self.transform:
+            img = self.transform(img)
+        return img, target, idx
+
+
+class ImageFolderDatasetWithIdx(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.targets = dataset.targets
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        img, target = self.dataset[idx]
+        return img, target, idx
 
 
 class MedMNISTWithIdx(Dataset):

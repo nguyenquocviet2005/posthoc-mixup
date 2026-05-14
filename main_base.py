@@ -64,7 +64,7 @@ parser.add_argument('--batch_size', default=128, type=int, help='Batch size for 
 parser.add_argument('--plot', default=20, type=int, help='')
 parser.add_argument('--run', default=3, type=int, help='')
 parser.add_argument('--classnumber', default=10, type=int, help='class number for the dataset')
-parser.add_argument('--data', default='cifar10', type=str, help='Dataset name to use [cifar10, cifar100, pathmnist]')
+parser.add_argument('--data', default='cifar10', type=str, help='Dataset name to use [cifar10, cifar100, pathmnist, alzheimer, tuberculosis]')
 parser.add_argument('--model', default='res110', type=str, help='Models name to use [res110, dense, wrn, cmixer, efficientnet, mobilenet, vgg]')
 parser.add_argument('--method', default='Baseline', type=str, help='[Baseline, Mixup, LS, L1, focal, CRL]')
 parser.add_argument('--data_path', default='./data/', type=str, help='Dataset directory')
@@ -103,10 +103,13 @@ def main():
     if args.data == 'cifar100':
         num_class = 100
         args.classnumber = 100
-    elif args.data == 'skin_cancer_isic' or args.data == 'chest_xray':
+    elif args.data in ['skin_cancer_isic', 'chest_xray', 'tuberculosis']:
         num_class = 2
         args.classnumber = 2
     elif args.data == 'mri_tumor':
+        num_class = 4
+        args.classnumber = 4
+    elif args.data == 'alzheimer':
         num_class = 4
         args.classnumber = 4
     elif args.data == 'pathmnist':
