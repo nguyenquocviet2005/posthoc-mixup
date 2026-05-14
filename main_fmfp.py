@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from torch.optim.lr_scheduler import MultiStepLR
 from torchvision import datasets, transforms
+import torchvision.models as tv_models
 from scipy.spatial import distance
 from scipy.stats import chi2
 from scipy import stats
@@ -63,13 +64,19 @@ parser.add_argument('--plot', default=20, type=int, help='')
 parser.add_argument('--run', default=3, type=int, help='')
 parser.add_argument('--classnumber', default=10, type=int, help='class number for the dataset')
 parser.add_argument('--data', default='cifar10', type=str, help='Dataset name to use [cifar10, cifar100]')
-parser.add_argument('--model', default='resnet18', type=str, help='Models name to use [res110, dense, wrn, cmixer, efficientnet, mobilenet, vgg]')
+parser.add_argument('--model', default='resnet18', type=str, help='Models name to use [resnet18, resnet50, res110, dense, wrn, cmixer, efficientnet, mobilenet, vgg]')
 parser.add_argument('--method', default='fmfp', type=str, help='[sam, swa, fmfp]')
 parser.add_argument('--data_path', default='./data/', type=str, help='Dataset directory')
 parser.add_argument('--save_path', default='./output_flat/', type=str, help='Savefiles directory')
 parser.add_argument('--rank_weight', default=1.0, type=float, help='Rank loss weight')
 parser.add_argument('--gpu', default='1', type=str, help='GPU id to use')
 parser.add_argument('--print-freq', '-p', default=200, type=int, metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--chexpert_target', default='Pleural Effusion', type=str,
+                    help='CheXpert label column to train as a binary target')
+parser.add_argument('--chexpert_uncertain', default='one', choices=['zero', 'one', 'ignore'],
+                    help='How to map CheXpert uncertain labels (-1)')
+parser.add_argument('--chexpert_frontal_only', action='store_true',
+                    help='Use only frontal CheXpert images')
 
 args = parser.parse_args()
 
@@ -97,8 +104,16 @@ def main():
 
     if args.data == 'cifar100':
         num_class = 100
+        args.classnumber = 100
+    elif args.data in ['chexpert_small', 'skin_cancer_isic', 'chest_xray']:
+        num_class = 2
+        args.classnumber = 2
+    elif args.data == 'mri_tumor':
+        num_class = 4
+        args.classnumber = 4
     else:
         num_class = 10
+        args.classnumber = 10
     model_dict = {
         "num_classes": num_class,
     }
@@ -107,6 +122,8 @@ def main():
         print(r)
         if args.model == 'resnet18':
             model = resnet18.ResNet18(**model_dict).cuda()
+        elif args.model == 'resnet50':
+            model = tv_models.resnet50(num_classes=num_class).cuda()
         elif args.model == 'res110':
             model = resnet.resnet110(**model_dict).cuda()
         elif args.model == 'dense':
@@ -125,7 +142,7 @@ def main():
             model = convmixer.ConvMixer(256, 16, kernel_size=8, patch_size=1, n_classes=num_class).cuda()
         else:
             raise ValueError(f"Unknown model: {args.model}. Supported models are: "
-                           "resnet18, res110, dense, vgg, wrn, efficientnet, mobilenet, cmixer")
+                           "resnet18, resnet50, res110, dense, vgg, wrn, efficientnet, mobilenet, cmixer")
 
         cls_criterion = nn.CrossEntropyLoss().cuda()
         # make logger
