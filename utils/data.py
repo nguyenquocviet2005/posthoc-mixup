@@ -93,6 +93,7 @@ def get_loader(data, data_path, batch_size, args):
             from medmnist import PathMNIST
         except ImportError as exc:
             raise ImportError("PathMNIST requires medmnist. Install it with: pip install medmnist") from exc
+        os.makedirs(data_path, exist_ok=True)
 
         mean = [0.485, 0.456, 0.406]
         stdv = [0.229, 0.224, 0.225]
