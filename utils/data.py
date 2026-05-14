@@ -70,6 +70,192 @@ class DatasetWrapper(Dataset):
 
 def get_loader(data, data_path, batch_size, args):
     # dataset normalize values
+    if data == 'chest_xray':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+        
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        class ImageFolderWithIdx(Dataset):
+            def __init__(self, root, transform=None):
+                self.dataset = datasets.ImageFolder(root=root, transform=transform)
+                
+            def __len__(self):
+                return len(self.dataset)
+                
+            def __getitem__(self, idx):
+                img, target = self.dataset[idx]
+                return img, target, idx
+
+        train_data = ImageFolderWithIdx(root=os.path.join(data_path, 'train'), transform=train_transforms)
+        eval_data = ImageFolderWithIdx(root=os.path.join(data_path, 'val'), transform=test_transforms)
+        test_data = ImageFolderWithIdx(root=os.path.join(data_path, 'test'), transform=test_transforms)
+        
+        test_targets = test_data.dataset.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+        
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        
+        print("-------------------Make loader-------------------")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
+    if data == 'mri_tumor':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+        
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        train_dir = os.path.join(data_path, 'Training')
+        test_dir = os.path.join(data_path, 'Testing')
+        
+        full_train_set = datasets.ImageFolder(root=train_dir)
+        num_total = len(full_train_set)
+        indices = list(range(num_total))
+        np.random.seed(42)
+        np.random.shuffle(indices)
+        
+        split_val = int(np.floor(0.1 * num_total))
+        val_idx = indices[:split_val]
+        train_idx = indices[split_val:]
+        
+        class ImageFolderSubset(Dataset):
+            def __init__(self, full_set, indices, transform=None):
+                self.full_set = full_set
+                self.indices = indices
+                self.transform = transform
+                
+            def __len__(self):
+                return len(self.indices)
+                
+            def __getitem__(self, idx):
+                real_idx = self.indices[idx]
+                path, target = self.full_set.samples[real_idx]
+                img = Image.open(path).convert('RGB')
+                if self.transform:
+                    img = self.transform(img)
+                return img, target, idx
+                
+        train_data = ImageFolderSubset(full_train_set, train_idx, train_transforms)
+        eval_data = ImageFolderSubset(full_train_set, val_idx, test_transforms)
+        
+        class ImageFolderWithIdx(Dataset):
+            def __init__(self, root, transform=None):
+                self.dataset = datasets.ImageFolder(root=root, transform=transform)
+                
+            def __len__(self):
+                return len(self.dataset)
+                
+            def __getitem__(self, idx):
+                img, target = self.dataset[idx]
+                return img, target, idx
+                
+        test_data = ImageFolderWithIdx(root=test_dir, transform=test_transforms)
+        
+        test_targets = test_data.dataset.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+        
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        
+        print("-------------------Make loader-------------------")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
+    if data == 'skin_cancer_isic':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+        
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        full_set = datasets.ImageFolder(root=data_path)
+        
+        num_total = len(full_set)
+        indices = list(range(num_total))
+        np.random.seed(42)
+        np.random.shuffle(indices)
+        
+        split_val = int(np.floor(0.1 * num_total))
+        split_test = int(np.floor(0.1 * num_total))
+        
+        test_idx = indices[:split_test]
+        val_idx = indices[split_test:split_test+split_val]
+        train_idx = indices[split_test+split_val:]
+        
+        class ImageFolderSubset(Dataset):
+            def __init__(self, full_set, indices, transform=None):
+                self.full_set = full_set
+                self.indices = indices
+                self.transform = transform
+                
+            def __len__(self):
+                return len(self.indices)
+                
+            def __getitem__(self, idx):
+                real_idx = self.indices[idx]
+                path, target = self.full_set.samples[real_idx]
+                img = Image.open(path).convert('RGB')
+                if self.transform:
+                    img = self.transform(img)
+                return img, target, idx
+                
+        train_data = ImageFolderSubset(full_set, train_idx, train_transforms)
+        eval_data = ImageFolderSubset(full_set, val_idx, test_transforms)
+        test_data = ImageFolderSubset(full_set, test_idx, test_transforms)
+        
+        test_targets = [full_set.samples[i][1] for i in test_idx]
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+        
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        
+        print("-------------------Make loader-------------------")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
     if data == 'cifar100':
         mean = [0.507, 0.487, 0.441]
         stdv = [0.267, 0.256, 0.276]

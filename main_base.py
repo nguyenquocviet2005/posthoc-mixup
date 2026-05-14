@@ -73,6 +73,7 @@ parser.add_argument('--save_path', default='./output/', type=str, help='Savefile
 parser.add_argument('--rank_weight', default=1.0, type=float, help='Rank loss weight')
 parser.add_argument('--gpu', default='0', type=str, help='GPU id to use')
 parser.add_argument('--print-freq', '-p', default=200, type=int, metavar='N', help='print frequency (default: 10)')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 
 args = parser.parse_args()
 
@@ -101,6 +102,12 @@ def main():
     if args.data == 'cifar100':
         num_class = 100
         args.classnumber = 100
+    elif args.data == 'skin_cancer_isic' or args.data == 'chest_xray':
+        num_class = 2
+        args.classnumber = 2
+    elif args.data == 'mri_tumor':
+        num_class = 4
+        args.classnumber = 4
     else:
         num_class = 10
     model_dict = {
@@ -124,6 +131,12 @@ def main():
 
         if args.model == 'resnet18':
             model = resnet18.ResNet18(**model_dict).cuda()
+        elif args.model == 'resnet50':
+            import torchvision.models as models
+            model = models.resnet50(num_classes=num_class).cuda()
+        elif args.model == 'resnet101':
+            import torchvision.models as models
+            model = models.resnet101(num_classes=num_class).cuda()
         elif args.model == 'res110':
             model = resnet.resnet110(**model_dict).cuda()
         elif args.model == 'dense':
@@ -144,10 +157,13 @@ def main():
             model = LeNet.LeNet().cuda()
         elif args.model == 'AlexNet':
             model = AlexNet.AlexNet().cuda()
+        else:
+            raise ValueError(f"Unknown model: {args.model}. Supported models are: "
+                           "resnet18, res110, dense, vgg, wrn, efficientnet, mobilenet, cmixer, LeNet, AlexNet")
 
         cls_criterion = nn.CrossEntropyLoss().cuda()
 
-        base_lr = 0.1  # Initial learning rate
+        base_lr = args.lr  # Initial learning rate
         lr_strat = [80, 130, 170]
         lr_factor = 0.1  # Learning rate decrease factor
         custom_weight_decay = 5e-4  # Weight Decay

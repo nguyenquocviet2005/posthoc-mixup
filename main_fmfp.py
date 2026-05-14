@@ -123,7 +123,9 @@ def main():
             model = mobilenet.mobilenet(**model_dict).cuda()
         elif args.model == "cmixer":
             model = convmixer.ConvMixer(256, 16, kernel_size=8, patch_size=1, n_classes=num_class).cuda()
-
+        else:
+            raise ValueError(f"Unknown model: {args.model}. Supported models are: "
+                           "resnet18, res110, dense, vgg, wrn, efficientnet, mobilenet, cmixer")
 
         cls_criterion = nn.CrossEntropyLoss().cuda()
         # make logger
