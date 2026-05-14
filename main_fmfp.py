@@ -63,7 +63,7 @@ parser.add_argument('--batch_size', default=128, type=int, help='Batch size for 
 parser.add_argument('--plot', default=20, type=int, help='')
 parser.add_argument('--run', default=3, type=int, help='')
 parser.add_argument('--classnumber', default=10, type=int, help='class number for the dataset')
-parser.add_argument('--data', default='cifar10', type=str, help='Dataset name to use [cifar10, cifar100]')
+parser.add_argument('--data', default='cifar10', type=str, help='Dataset name to use [cifar10, cifar100, pathmnist]')
 parser.add_argument('--model', default='resnet18', type=str, help='Models name to use [resnet18, resnet50, res110, dense, wrn, cmixer, efficientnet, mobilenet, vgg]')
 parser.add_argument('--method', default='fmfp', type=str, help='[sam, swa, fmfp]')
 parser.add_argument('--data_path', default='./data/', type=str, help='Dataset directory')
@@ -111,6 +111,9 @@ def main():
     elif args.data == 'mri_tumor':
         num_class = 4
         args.classnumber = 4
+    elif args.data == 'pathmnist':
+        num_class = 9
+        args.classnumber = 9
     else:
         num_class = 10
         args.classnumber = 10

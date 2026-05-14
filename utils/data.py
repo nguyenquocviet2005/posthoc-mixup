@@ -88,6 +88,71 @@ class DatasetWrapper(Dataset):
 
 def get_loader(data, data_path, batch_size, args):
     # dataset normalize values
+    if data == 'pathmnist':
+        try:
+            from medmnist import PathMNIST
+        except ImportError as exc:
+            raise ImportError("PathMNIST requires medmnist. Install it with: pip install medmnist") from exc
+
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        train_base = PathMNIST(
+            split='train',
+            transform=train_transforms,
+            download=True,
+            as_rgb=True,
+            root=data_path,
+            size=224,
+        )
+        eval_base = PathMNIST(
+            split='val',
+            transform=test_transforms,
+            download=True,
+            as_rgb=True,
+            root=data_path,
+            size=224,
+        )
+        test_base = PathMNIST(
+            split='test',
+            transform=test_transforms,
+            download=True,
+            as_rgb=True,
+            root=data_path,
+            size=224,
+        )
+
+        train_data = MedMNISTWithIdx(train_base)
+        eval_data = MedMNISTWithIdx(eval_base)
+        test_data = MedMNISTWithIdx(test_base)
+
+        test_label = test_data.targets
+        test_onehot = np.eye(9)[test_label]
+
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        sample, _, _ = train_data[0]
+        print("-------------------Make loader-------------------")
+        print(f"PathMNIST MedMNIST+ size=224 | as_rgb=True | sample tensor shape={tuple(sample.shape)}")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
     if data == 'chexpert_small':
         mean = [0.485, 0.456, 0.406]
         stdv = [0.229, 0.224, 0.225]
@@ -423,6 +488,32 @@ class Custom_Dataset(Dataset):
         else:
             x = img
         return x, self.y_data[idx], idx
+
+
+class MedMNISTWithIdx(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+        if hasattr(dataset, 'labels'):
+            self.targets = [self._to_int_label(label) for label in dataset.labels]
+        else:
+            self.targets = [self._to_int_label(dataset[i][1]) for i in range(len(dataset))]
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        img, target = self.dataset[idx]
+        return img, self._to_int_label(target), idx
+
+    @staticmethod
+    def _to_int_label(target):
+        if isinstance(target, np.ndarray):
+            return int(target.reshape(-1)[0])
+        if torch.is_tensor(target):
+            return int(target.reshape(-1)[0].item())
+        if isinstance(target, (list, tuple)):
+            return int(target[0])
+        return int(target)
 
 
 class CheXpertSmallDataset(Dataset):
