@@ -30,6 +30,21 @@ CHEXPERT_LABEL_COLUMNS = [
 ]
 
 
+SUPPORTED_DATASETS = [
+    'cifar10',
+    'cifar100',
+    'pathmnist',
+    'chexpert_small',
+    'alzheimer',
+    'tuberculosis',
+    'sars_cov_2_ct_scan',
+    'chest_ct_scan',
+    'chest_xray',
+    'mri_tumor',
+    'skin_cancer_isic',
+]
+
+
 class PairBatchSampler(Sampler):
     def __init__(self, dataset, batch_size, num_iterations=None):
         self.dataset = dataset
@@ -314,6 +329,89 @@ def get_loader(data, data_path, batch_size, args):
               '   Test Dataset :', len(test_loader.dataset))
         return train_loader, valid_loader, test_loader, test_onehot, test_label
 
+    if data == 'sars_cov_2_ct_scan':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        full_set = datasets.ImageFolder(root=data_path)
+        num_total = len(full_set)
+        indices = list(range(num_total))
+        np.random.seed(42)
+        np.random.shuffle(indices)
+
+        split_val = int(np.floor(0.1 * num_total))
+        split_test = int(np.floor(0.1 * num_total))
+
+        test_idx = indices[:split_test]
+        val_idx = indices[split_test:split_test + split_val]
+        train_idx = indices[split_test + split_val:]
+
+        train_data = ImageFolderSubsetWithIdx(full_set, train_idx, train_transforms)
+        eval_data = ImageFolderSubsetWithIdx(full_set, val_idx, test_transforms)
+        test_data = ImageFolderSubsetWithIdx(full_set, test_idx, test_transforms)
+
+        test_targets = test_data.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        print("-------------------Make loader-------------------")
+        print(f"SARS-CoV-2 CT classes: {full_set.classes}")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
+    if data == 'chest_ct_scan':
+        mean = [0.485, 0.456, 0.406]
+        stdv = [0.229, 0.224, 0.225]
+
+        train_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.RandomHorizontalFlip(),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        test_transforms = tv.transforms.Compose([
+            tv.transforms.Resize((224, 224)),
+            tv.transforms.ToTensor(),
+            tv.transforms.Normalize(mean=mean, std=stdv),
+        ])
+
+        train_data = ChestCTScanDataset(os.path.join(data_path, 'train'), train_transforms)
+        eval_data = ChestCTScanDataset(os.path.join(data_path, 'valid'), test_transforms)
+        test_data = ChestCTScanDataset(os.path.join(data_path, 'test'), test_transforms)
+
+        test_targets = test_data.targets
+        test_onehot = one_hot_encoding(test_targets)
+        test_label = test_targets
+
+        train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=4)
+        valid_loader = DataLoader(eval_data, batch_size=batch_size, shuffle=False, num_workers=4)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=4)
+
+        print("-------------------Make loader-------------------")
+        print(f"Chest CT classes: {ChestCTScanDataset.classes}")
+        print('Train Dataset :', len(train_loader.dataset), 'Valid Dataset :', len(valid_loader.dataset),
+              '   Test Dataset :', len(test_loader.dataset))
+        return train_loader, valid_loader, test_loader, test_onehot, test_label
+
     if data == 'chest_xray':
         mean = [0.485, 0.456, 0.406]
         stdv = [0.229, 0.224, 0.225]
@@ -506,6 +604,10 @@ def get_loader(data, data_path, batch_size, args):
     elif data == 'cifar10':
         mean = [0.491, 0.482, 0.447]
         stdv = [0.247, 0.243, 0.262]
+    else:
+        raise ValueError(
+            f"Unsupported dataset '{data}'. Supported datasets: {', '.join(SUPPORTED_DATASETS)}"
+        )
 
     # augmentation
     train_transforms = tv.transforms.Compose([
@@ -622,6 +724,54 @@ class ImageFolderDatasetWithIdx(Dataset):
     def __getitem__(self, idx):
         img, target = self.dataset[idx]
         return img, target, idx
+
+
+class ChestCTScanDataset(Dataset):
+    classes = ['adenocarcinoma', 'large.cell.carcinoma', 'normal', 'squamous.cell.carcinoma']
+    class_to_idx = {name: idx for idx, name in enumerate(classes)}
+    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff'}
+
+    def __init__(self, root, transform=None):
+        self.root = root
+        self.transform = transform
+        self.samples = []
+        self.targets = []
+
+        for dirpath, _, filenames in os.walk(root):
+            label = self._label_from_dir(os.path.basename(dirpath))
+            if label is None:
+                continue
+            for filename in sorted(filenames):
+                if os.path.splitext(filename)[1].lower() in self.image_extensions:
+                    path = os.path.join(dirpath, filename)
+                    self.samples.append((path, label))
+                    self.targets.append(label)
+
+        if len(self.samples) == 0:
+            raise RuntimeError(f"No chest CT images found under {root}")
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        path, target = self.samples[idx]
+        img = Image.open(path).convert('RGB')
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, target, idx
+
+    @classmethod
+    def _label_from_dir(cls, dirname):
+        name = dirname.lower()
+        if name.startswith('adenocarcinoma'):
+            return cls.class_to_idx['adenocarcinoma']
+        if name.startswith('large.cell.carcinoma'):
+            return cls.class_to_idx['large.cell.carcinoma']
+        if name == 'normal':
+            return cls.class_to_idx['normal']
+        if name.startswith('squamous.cell.carcinoma'):
+            return cls.class_to_idx['squamous.cell.carcinoma']
+        return None
 
 
 class MedMNISTWithIdx(Dataset):
