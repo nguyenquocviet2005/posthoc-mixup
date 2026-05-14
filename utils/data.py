@@ -118,6 +118,7 @@ def get_loader(data, data_path, batch_size, args):
             as_rgb=True,
             root=data_path,
             size=224,
+            mmap_mode='r',
         )
         eval_base = PathMNIST(
             split='val',
@@ -126,6 +127,7 @@ def get_loader(data, data_path, batch_size, args):
             as_rgb=True,
             root=data_path,
             size=224,
+            mmap_mode='r',
         )
         test_base = PathMNIST(
             split='test',
@@ -134,6 +136,7 @@ def get_loader(data, data_path, batch_size, args):
             as_rgb=True,
             root=data_path,
             size=224,
+            mmap_mode='r',
         )
 
         train_data = MedMNISTWithIdx(train_base)
