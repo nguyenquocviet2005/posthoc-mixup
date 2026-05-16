@@ -120,7 +120,7 @@ def main():
     model_dict = {
         "num_classes": num_class,
     }
-    seeds = [1]
+    seeds = [0, 1]
     for r in range(args.run):
         print(100*'#')
         print(f"Run {r} with seed {seeds[r]}")
